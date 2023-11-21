@@ -100,3 +100,27 @@ def test_find_missing_values(tsa):
         pd.Timestamp('2020-01-10 00:00:00'),
         pd.Timestamp('2020-01-11 00:00:00')
     ]
+
+
+def test_missing_values_with_non_regular_series(tsa):
+    ts = pd.Series(
+        range(12),
+        index = pd.date_range(datetime(2023, 1, 1), freq='M', periods=12)
+    )
+    tsa.update('monthly-series', ts, 'test-health')
+
+    # the monthly series is by construct irregular:
+    # our heuristic can only returns stupid results
+    missing_dates = find_missing_value_dates(tsa, 'monthly-series')
+    assert missing_dates == [
+        pd.Timestamp('2023-03-03 00:00:00', freq='31D'),
+        pd.Timestamp('2023-04-03 00:00:00', freq='31D'),
+        pd.Timestamp('2023-05-04 00:00:00', freq='31D'),
+        pd.Timestamp('2023-06-04 00:00:00', freq='31D'),
+        pd.Timestamp('2023-07-05 00:00:00', freq='31D'),
+        pd.Timestamp('2023-08-05 00:00:00', freq='31D'),
+        pd.Timestamp('2023-09-05 00:00:00', freq='31D'),
+        pd.Timestamp('2023-10-06 00:00:00', freq='31D'),
+        pd.Timestamp('2023-11-06 00:00:00', freq='31D'),
+        pd.Timestamp('2023-12-07 00:00:00', freq='31D'),
+    ]
