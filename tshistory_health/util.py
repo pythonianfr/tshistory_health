@@ -1,6 +1,8 @@
 import pandas as pd
 from pandas.tseries.frequencies import to_offset
 
+from tshistory.util import diff
+
 
 def infer_freq(ts):
     return _infer_freq(ts.index)
@@ -72,3 +74,47 @@ def find_missing_value_dates(
     )
     missing_dates = regular_dates[~regular_dates.isin(ts.index)]
     return missing_dates.to_list()
+
+
+def history_profiling(
+        tsa,
+        name,
+        from_value_date=None,
+        to_value_date=None,
+        from_insertion_date=None,
+        to_insertion_date=None,
+):
+    hist = tsa.history(
+        name,
+        from_value_date=from_value_date,
+        to_value_date=to_value_date,
+        from_insertion_date=from_insertion_date,
+        to_insertion_date=to_insertion_date,
+    )
+    results = {}
+    previous_state = pd.Series()
+    for idate, state in hist.items():
+        differential = diff(previous_state, state)
+        nb_values = len(differential)
+        min = differential.min()
+        max = differential.max()
+        standard_deviation = previous_state.std()
+        mean = previous_state.mean()
+        deviation_max = abs((max - mean) / standard_deviation)
+        deviation_min = abs((min - mean) / standard_deviation)
+        previous_state = state.copy()
+        if differential.index.tz is None:
+            differential.index = differential.tz_localize('UTC').index
+        delta_from = differential.index[0] - idate
+        delta_to = differential.index[-1] - idate
+        results[idate] = {
+            'nb_values' : nb_values,
+            'delta_from': delta_from,
+            'delta_to': delta_to,
+            'min': min,
+            'max': max,
+            'deviation_min': deviation_min,
+            'deviation_max': deviation_max,
+        }
+
+    return results

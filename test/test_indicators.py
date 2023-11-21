@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -8,7 +9,9 @@ from tshistory_health.util import (
     infer_values_frequency,
     infer_insertions_frequency,
     find_missing_value_dates,
+    history_profiling,
 )
+
 
 def test_infer_freq():
     s1 = pd.Series(
@@ -124,3 +127,99 @@ def test_missing_values_with_non_regular_series(tsa):
         pd.Timestamp('2023-11-06 00:00:00', freq='31D'),
         pd.Timestamp('2023-12-07 00:00:00', freq='31D'),
     ]
+
+
+def test_history_profile(tsa):
+    # we build a very coherent series, with a (somewhat irregular)
+    # link between the insertion_date and the values_date range
+    # ie. for an insertion date, the values will be from the day before
+    # to three days after
+
+    # first update
+    ts = pd.Series(
+        range(4),
+        index=pd.date_range(datetime(2020, 1, 1), freq='D', periods=4)
+    )
+    tsa.update(
+        'series-for-profiling',
+        ts,
+        'test-health',
+        insertion_date = pd.Timestamp(datetime(2020, 1, 2, 3, 46))
+    )
+    # second update
+    ts = pd.Series(
+        range(4),
+        index=pd.date_range(datetime(2020, 1, 2), freq='D', periods=4)
+    )
+    tsa.update(
+        'series-for-profiling',
+        ts,
+        'test-health',
+        insertion_date=pd.Timestamp(datetime(2020, 1, 3, 3, 48))
+    )
+    # third update
+    ts = pd.Series(
+        range(4),
+        index=pd.date_range(datetime(2020, 1, 3), freq='D', periods=4)
+    )
+    tsa.update(
+        'series-for-profiling',
+        ts,
+        'test-health',
+        insertion_date=pd.Timestamp(datetime(2020, 1, 4, 2, 27))
+    )
+    # fourth update
+    ts = pd.Series(
+        range(4),
+        index=pd.date_range(datetime(2020, 1, 4), freq='D', periods=4)
+    )
+    tsa.update(
+        'series-for-profiling',
+        ts,
+        'test-health',
+        insertion_date=pd.Timestamp(datetime(2020, 1, 5, 4, 32))
+    )
+
+    profiling = history_profiling(tsa, 'series-for-profiling')
+
+    # first value contains some nan, which are a pain to be tested
+    profiling_first = profiling[list(profiling.keys())[0]]
+    profiling_lasts = {k: profiling[k] for k in list(profiling.keys())[1:]}
+
+    assert profiling_first['nb_values'] == 4
+    assert profiling_first['delta_from'] == pd.Timedelta('-2 days +20:14:00')
+    assert profiling_first['delta_to'] == pd.Timedelta('1 days 20:14:00')
+    assert profiling_first['min'] == 0
+    assert profiling_first['max'] == 3
+    assert pd.isna(profiling_first['deviation_min'])
+    assert pd.isna(profiling_first['deviation_max'])
+
+    assert profiling_lasts == {
+        pd.Timestamp('2020-01-03 03:48:00+0000', tz='UTC'): {
+            'delta_from': pd.Timedelta('-2 days +20:12:00'),
+            'delta_to': pd.Timedelta('1 days 20:12:00'),
+            'deviation_max': 1.161895003862225,
+            'deviation_min': 1.161895003862225,
+            'max': 3.0,
+            'min': 0.0,
+            'nb_values': 4
+        },
+        pd.Timestamp('2020-01-04 02:27:00+0000', tz='UTC'): {
+            'delta_from': pd.Timedelta('-2 days +21:33:00'),
+            'delta_to': pd.Timedelta('1 days 21:33:00'),
+            'deviation_max': 1.380536979925267,
+            'deviation_min': 0.9203579866168445,
+            'max': 3.0,
+            'min': 0.0,
+            'nb_values': 4
+        },
+        pd.Timestamp('2020-01-05 04:32:00+0000', tz='UTC'): {
+            'delta_from': pd.Timedelta('-2 days +19:28:00'),
+            'delta_to': pd.Timedelta('1 days 19:28:00'),
+            'deviation_max': 1.5811388300841895,
+            'deviation_min': 0.7905694150420948,
+            'max': 3.0,
+            'min': 0.0,
+            'nb_values': 4
+        }
+    }
