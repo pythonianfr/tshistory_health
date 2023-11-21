@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 import pytest
@@ -6,6 +6,7 @@ import pytest
 from tshistory_health.util import (
     infer_freq,
     infer_values_frequency,
+    infer_insertions_frequency,
 )
 
 def test_infer_freq():
@@ -43,3 +44,23 @@ def test_values_freq(tsa):
     d, q = infer_values_frequency(tsa, 'my-hourly-series')
     assert d == pd.Timedelta('0 days 01:00:00')
     assert q == 1
+
+
+def test_insertions_freq(tsa):
+    ts =  pd.Series(
+        [1., 2., 3., 4.],
+        index=pd.date_range(datetime(2020, 1, 1), freq='H', periods=4)
+    )
+    idate = pd.Timestamp('2023-01-01')
+    for idx in range(10):
+        ts = ts + idx
+        tsa.update(
+            'multiple-insertions',
+            ts,
+            'test',
+            insertion_date=idate + timedelta(days=idx),
+        )
+
+    assert infer_insertions_frequency(
+        tsa, 'multiple-insertions'
+    ) == pd.Timedelta('1 days 00:00:00')
