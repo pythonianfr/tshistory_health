@@ -7,6 +7,7 @@ from tshistory_health.util import (
     infer_freq,
     infer_values_frequency,
     infer_insertions_frequency,
+    find_missing_value_dates,
 )
 
 def test_infer_freq():
@@ -49,7 +50,7 @@ def test_values_freq(tsa):
 def test_insertions_freq(tsa):
     ts =  pd.Series(
         [1., 2., 3., 4.],
-        index=pd.date_range(datetime(2020, 1, 1), freq='H', periods=4)
+        index=pd.date_range(datetime(2020, 1, 1), freq='D', periods=4)
     )
     idate = pd.Timestamp('2023-01-01')
     for idx in range(10):
@@ -64,3 +65,38 @@ def test_insertions_freq(tsa):
     assert infer_insertions_frequency(
         tsa, 'multiple-insertions'
     ) == pd.Timedelta('1 days 00:00:00')
+
+
+def test_find_missing_values(tsa):
+    ts = pd.Series(
+        [1., 2., 3., 4.],
+        index=pd.date_range(datetime(2020, 1, 1), freq='D', periods=4)
+    )
+    tsa.update('series-to-complete', ts, 'test-health')
+
+    missing_dates = find_missing_value_dates(tsa, 'series-to-complete')
+
+    assert missing_dates == []
+
+    # we add two chunks to this series
+    # we left one missing day (2020-01-05)
+    ts = pd.Series(
+        [1., 2., 3., 4.],
+        index=pd.date_range(datetime(2020, 1, 6), freq='D', periods=4)
+    )
+    tsa.update('series-to-complete', ts, 'test-health')
+
+    # we left two missing days (2020-01-10 and 2020-01-11)
+    ts = pd.Series(
+        [1., 2., 3., 4.],
+        index=pd.date_range(datetime(2020, 1, 12), freq='D', periods=4)
+    )
+    tsa.update('series-to-complete', ts, 'test-health')
+
+    missing_dates = find_missing_value_dates(tsa, 'series-to-complete')
+
+    assert missing_dates == [
+        pd.Timestamp('2020-01-05 00:00:00'),
+        pd.Timestamp('2020-01-10 00:00:00'),
+        pd.Timestamp('2020-01-11 00:00:00')
+    ]
