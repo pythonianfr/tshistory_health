@@ -253,3 +253,31 @@ def test_dependants(tsa):
     assert find_dependents(
         tsa, 'my-primary', direct=False
     ) == ['monthly-formula', 'weekly-formula']
+
+
+def test_selection_by_status(tsa):
+    ts = pd.Series(
+        range(4),
+        index=pd.date_range(datetime(2020, 1, 1), freq='D', periods=4)
+    )
+
+    tsa.update(
+        'unsupervised',
+        ts,
+        'test-health',
+    )
+
+    tsa.update(
+        'supervised-series',
+        ts,
+        'test-health',
+    )
+    tsa.update(
+        'supervised-series',
+        ts+1,
+        'test-health',
+        manual=True
+    )
+    found = tsa.find('(by.internal-metaitem "supervision_status" "supervised")')
+
+    assert found == ['supervised-series']
