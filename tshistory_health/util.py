@@ -118,3 +118,24 @@ def history_profiling(
         }
 
     return results
+
+
+def find_dependents(tsa, primary, direct=True):
+    catalog = tsa.catalog()
+    local_cat = catalog[list(catalog.keys())[0]]
+    formulas_cat = [name for name, typ in local_cat if typ=='formula']
+    direct_formulas = [
+        name
+        for name in formulas_cat
+        if primary in tsa.formula_components(name)[name]
+    ]
+    if direct:
+        return direct_formulas
+
+    assert tsa.engine, 'find_dependents function need postgres connection'
+    result = set(direct_formulas)
+    for formula in direct_formulas:
+        result = result.union(
+            set(tsa.tsh.dependents(tsa.engine, formula, direct=False))
+        )
+    return sorted(list(result))

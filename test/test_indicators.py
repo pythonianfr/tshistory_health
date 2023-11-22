@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -10,6 +9,7 @@ from tshistory_health.util import (
     infer_insertions_frequency,
     find_missing_value_dates,
     history_profiling,
+    find_dependents,
 )
 
 
@@ -223,3 +223,33 @@ def test_history_profile(tsa):
             'nb_values': 4
         }
     }
+
+
+def test_dependants(tsa):
+    ts = pd.Series(
+        range(4),
+        index=pd.date_range(datetime(2020, 1, 1), freq='D', periods=4)
+    )
+    tsa.update(
+        'my-primary',
+        ts,
+        'test-health',
+    )
+
+    tsa.register_formula(
+        'weekly-formula',
+        '(resample (series "my-primary") "W")'
+    )
+
+    tsa.register_formula(
+        'monthly-formula',
+        '(resample (series "weekly-formula") "M" )'
+    )
+
+    assert find_dependents(
+        tsa, 'my-primary', direct=True
+    ) == ['weekly-formula']
+
+    assert find_dependents(
+        tsa, 'my-primary', direct=False
+    ) == ['monthly-formula', 'weekly-formula']
