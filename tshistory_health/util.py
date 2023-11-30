@@ -128,10 +128,11 @@ def find_direct_dependents(tsa, catalog, targets):
     ]
     return direct_formulas
 
+
 def find_dependents(tsa, primary, direct=True):
     catalog = tsa.catalog()
     local_cat = catalog[list(catalog.keys())[0]]
-    formulas_cat = [name for name, typ in local_cat if typ=='formula']
+    formulas_cat = [name for name, typ in local_cat if typ == 'formula']
     direct_formulas = find_direct_dependents(tsa, formulas_cat, [primary])
     if direct:
         return direct_formulas
@@ -144,3 +145,16 @@ def find_dependents(tsa, primary, direct=True):
         if not len(next_batch):
             break
     return sorted(list(results))
+
+
+def find_by_status(tsa, status):
+    assert status in ('supervised', 'unsupervised', 'handcrafted')
+    catalog = tsa.catalog()
+    local_cat = catalog[list(catalog.keys())[0]]
+    primary_cat = [name for name, typ in local_cat if typ == 'primary']
+    results = []
+    for prim in primary_cat:
+        meta = tsa.internal_metadata(prim)
+        if meta['supervision_status'] == status:
+            results.append(prim)
+    return results

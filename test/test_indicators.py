@@ -10,6 +10,7 @@ from tshistory_health.util import (
     find_missing_value_dates,
     history_profiling,
     find_dependents,
+    find_by_status,
 )
 
 
@@ -278,6 +279,10 @@ def test_selection_by_status(tsa):
         'test-health',
         manual=True
     )
-    found = tsa.find('(by.internal-metaitem "supervision_status" "supervised")')
+
+    found = find_by_status(tsa, 'supervised')
 
     assert found == ['supervised-series']
+
+    # available next released version
+    # found = tsa.find('(by.internal-metaitem "supervision_status" "supervised")')
